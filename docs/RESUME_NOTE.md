@@ -1,9 +1,10 @@
 # Resume Note: Linux Server Production Deployment
 
 **Date**: 2026-10-17  
-**Current Milestone**: Linux Server Production Deployment COMPLETE (Fully Verified Live via Public HTTPS)  
-**Previous Milestone**: Phase 3 Complete & Production Configuration Prepared
-**Deployed Revision**: `f8beb88` (`git@github.com:Bltagy/meet-ark.git`)
+**Current Milestone**: Milestone 4 Released to Production (Meeting Scheduling & Clearer Dashboard Live)  
+**Previous Milestone**: Initial Linux Server Production Deployment COMPLETE  
+**Deployed Revision**: `6ea79c2` (`git@github.com:Bltagy/meet-ark.git`)  
+**Previous Revision**: `b5025dc`  
 **Server**: `devark` (`192.248.191.76`), Ubuntu 24.04 LTS (x86_64)  
 **Deployment Path**: `/var/www/html/meet-ark`
 
@@ -192,8 +193,16 @@ Executed live against the running Prosody BOSH endpoint (`https://web:443/http-b
   - Separate sections: "Upcoming Scheduled Meetings" (ordered by start time ascending) and "Instant & Past Meetings" (without labeling past meetings as "completed").
   - Owner edit modal and confirmation dialogs.
   - Resilient invitation link copying with fallback prompt.
-- **Verification**:
-  - 50 automated tests passing (251 assertions), including 10 dedicated scheduling, timezone conversion, editing, and invitation flow tests (`MeetingSchedulingTest`).
+- **Verification & Test Coverage**:
+  - 53 automated tests passing (265 assertions) in `php artisan test`, including 13 dedicated scheduling, non-shifting edits, past meeting edits, timezone conversions, and invitation flow tests (`MeetingSchedulingTest`).
   - Live Prosody protocol & JWT verification passed all 7 checks.
-  - Vite production bundle compiled cleanly in 1.2s.
+  - Vite production bundle compiled cleanly in 0.9s (`app-DK5p6UfS.js`, `app-DkNMZaHZ.css`).
+- **Production Release Execution (`devark`)**:
+  - Pre-deployment DB backup created: `/var/www/html/meet-ark/backups/db_backup_pre_scheduling_20261017_071652.sql` (chmod 600).
+  - Previous app image recorded: `sha256:fc52618d68466358d49c3e47b68aecbe1020af1caff38f4b64afa5710ea8874c`.
+  - Built production image natively on server (`sha256:d887926d813321c91f2bd8e7434c122bba721f3bf5fdc58c5fe7ef7032b7011b`).
+  - Ran additive migration `2026_10_17_000001_add_scheduling_to_meetings_table` explicitly via production app.
+  - Recreated only `meet-ark-app-1` with zero interruption to Jitsi, PostgreSQL, NPM, or unrelated containers.
+  - Live production smoke checks verified user registration, future meeting scheduling with IANA timezone conversion, dashboard display under upcoming meetings, title and duration editing with exact room name preservation, Jitsi URL integration, and JWT token issuance. Disposable records cleanly purged.
+
 

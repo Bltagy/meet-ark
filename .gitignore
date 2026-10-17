@@ -8,8 +8,10 @@
 data/
 data/**
 
-# Scratch directory
+# Scratch and backup directories
 scratch/
+backups/
+*.sql
 
 # Application vendor and node modules
 application/.env
