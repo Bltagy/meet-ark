@@ -2,7 +2,7 @@
 # Meet-Ark Production Docker Compose Configuration
 #
 # USAGE:
-#   docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env.production <command>
+#   docker compose -p meet-ark -f docker-compose.yml -f docker-compose.prod.yml --env-file .env.production <command>
 #
 # IMPORTANT:
 #   - Specifying explicit '-f' files ensures docker-compose.override.yml is NEVER loaded.
@@ -10,7 +10,7 @@
 #   - No host source-code volume mount is used; the application code and built assets are baked in.
 #   - APP_ENV=production and APP_DEBUG=false are enforced.
 #   - PostgreSQL exposes NO host ports (isolated within internal meet.jitsi network).
-#   - HTTP services bind to 127.0.0.1 for secure edge reverse proxy termination (Nginx/Caddy/Traefik).
+#   - Web and App services attach to NPM's external Docker network 'nginx-proxy-net'.
 # ==============================================================================
 
 services:
@@ -31,6 +31,11 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    networks:
+      meet.jitsi:
+      proxy_net:
+        aliases:
+          - meet-ark-web
 
   # Prosody XMPP signaling server with room-scoped JWT & moderator enforcement
   prosody:
@@ -175,7 +180,7 @@ services:
     volumes:
       - ./data/app-storage:/var/www/html/storage:Z
     ports:
-      - "${APP_PORT:-127.0.0.1:8088}:8088"
+      - "${APP_PORT:-127.0.0.1:8098}:8088"
     depends_on:
       postgres:
         condition: service_healthy
@@ -192,3 +197,12 @@ services:
         max-file: "3"
     networks:
       meet.jitsi:
+      proxy_net:
+        aliases:
+          - meet-ark-app
+
+networks:
+  meet.jitsi:
+  proxy_net:
+    name: nginx-proxy-net
+    external: true
