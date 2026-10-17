@@ -1,8 +1,11 @@
-# Resume Note: Phase 3 & Production Deployment Preparation
+# Resume Note: Linux Server Production Deployment
 
-**Date**: 2026-10-16  
-**Current Milestone**: Production Deployment Preparation Complete (Local Experience Accepted by User)  
-**Previous Milestone**: Phase 3 Complete (Server-Side Jitsi Token Authentication, Room-Scoped Laravel-Issued JWTs, Host Privilege Enforcement)
+**Date**: 2026-10-17  
+**Current Milestone**: Linux Server Production Deployment Complete (Internal Stack Verified, Awaiting NPM Host Entries)  
+**Previous Milestone**: Phase 3 Complete & Production Configuration Prepared
+**Deployed Revision**: `f8beb88` (`git@github.com:Bltagy/meet-ark.git`)
+**Server**: `devark` (`192.248.191.76`), Ubuntu 24.04 LTS (x86_64)  
+**Deployment Path**: `/var/www/html/meet-ark`
 
 ---
 
@@ -141,3 +144,28 @@ Executed live against the running Prosody BOSH endpoint (`https://web:443/http-b
   - External WebRTC media connectivity and public TLS are **NOT TESTED LOCALLY** (require public IP and DNS).
   - 50-user load capacity is **UNVERIFIED** (load testing postponed).
   - Jibri recording remains **DISABLED** for initial deployment.
+
+---
+
+## 7. Production Deployment Execution on Linux Server (`devark`)
+
+- **Server Info**: Ubuntu 24.04.4 LTS, x86_64, 4 vCPUs, 7.7 GiB RAM, 47 GiB disk available.
+- **Server Deployment Path**: `/var/www/html/meet-ark`
+- **Git Commit Deployed**: `f8beb88` (`main`)
+- **Docker Compose Command**:
+  ```bash
+  docker compose -p meet-ark -f docker-compose.yml -f docker-compose.prod.yml --env-file .env.production <cmd>
+  ```
+- **Port Conflict Mitigations on Shared Server**:
+  - `APP_PORT=127.0.0.1:8098` (avoiding host 8088 occupied by Mailcow).
+  - `HTTPS_PORT=127.0.0.1:8444` (avoiding host 8443 occupied by foodapp).
+  - `JVB_COLIBRI_PORT=8082` (avoiding host 8080 occupied by doctube).
+  - `JICOFO_REST_PORT=8889` (avoiding host 8888 occupied by Dozzle).
+  - PostgreSQL port 5432 is private inside `meet-ark_default` (avoiding host 5432 occupied by existing `backend-postgres`).
+  - JVB media port `10000/udp` bound to `0.0.0.0:10000` with UFW rule active.
+- **Nginx Proxy Manager Integration**:
+  - `meet-ark-app-1` and `meet-ark-web-1` joined external network `nginx-proxy-net` with aliases `meet-ark-app` and `meet-ark-web`.
+  - All internal HTTP, BOSH, Whiteboard Socket.io, and XMPP WebSocket connections tested from inside NPM container and passing.
+- **Automated Protocol & Host Privilege Checks on Production Server**:
+  - Executed `scripts/verify_jitsi_jwt.php` inside `meet-ark-app-1`: all 7 security, JWT rejection, and room/host privilege tests passed.
+  - Test records cleaned up.

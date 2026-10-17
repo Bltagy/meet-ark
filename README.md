@@ -152,7 +152,7 @@ docker compose logs -f web
 ### 1. Production Architecture Summary
 - **Laravel Application (`app`)**: Runs on PHP-FPM 8.4 + Nginx on Alpine Linux (`meet-ark-app:prod`). Frontend assets and production Composer packages are built into the image (no runtime compilation or volume overrides).
 - **PostgreSQL (`postgres`)**: Private to the internal Docker network `meet.jitsi`. Port 5432 is not exposed to the host.
-- **Edge Reverse Proxy**: Host Nginx (or container) terminates TLS for `app.<domain>` (port 8088) and `meet.<domain>` (port 8000), forwarding WebSockets and BOSH traffic.
+- **Edge Reverse Proxy**: Nginx Proxy Manager (NPM) on the `nginx-proxy-net` Docker network terminates public TLS, proxying `meet-ark.dev-ark.com` to `meet-ark-app:8088` and `meet.dev-ark.com` to `meet-ark-web:80` with WebSocket support.
 - **JVB Media SFU (`jvb`)**: Advertises the server's public IPv4 on `10000/udp`.
 
 ### 2. First-Time Deployment
