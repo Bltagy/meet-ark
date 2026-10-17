@@ -19,6 +19,8 @@ class Meeting extends Model
         'owner_id',
         'title',
         'room_name',
+        'starts_at',
+        'duration_minutes',
     ];
 
     /**
@@ -28,6 +30,8 @@ class Meeting extends Model
      */
     protected $casts = [
         'owner_id' => 'integer',
+        'starts_at' => 'datetime',
+        'duration_minutes' => 'integer',
     ];
 
     /**

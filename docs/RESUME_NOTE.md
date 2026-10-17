@@ -169,3 +169,31 @@ Executed live against the running Prosody BOSH endpoint (`https://web:443/http-b
 - **Automated Protocol & Host Privilege Checks on Production Server**:
   - Executed `scripts/verify_jitsi_jwt.php` inside `meet-ark-app-1`: all 7 security, JWT rejection, and room/host privilege tests passed.
   - Test records cleaned up.
+
+---
+
+## 8. Milestone: Meeting Scheduling & Clearer Dashboard
+
+- **Database Changes**:
+  - Migration `2026_10_17_000001_add_scheduling_to_meetings_table.php` adding nullable `starts_at` (timestamp) and `duration_minutes` (unsigned int).
+  - Existing meetings preserved as instant meetings (`starts_at = null`, `duration_minutes = null`).
+- **Backend & Validation**:
+  - `MeetingController::store` supports both instant and scheduled creation.
+  - Future time validation on scheduling (`starts_at` must be future at creation).
+  - Timezone-aware parsing (`Carbon::parse($date, $timezone)->utc()`) ensuring times are stored strictly in UTC.
+  - Default planned duration: 60 minutes (informational; does not cut off meetings).
+  - `MeetingController::update` allows owners to update title, scheduled time, and duration while preserving `room_name` and the invitation URL.
+  - Non-owner edit attempts are rejected with HTTP 403.
+- **Invitation Flow Enhancement**:
+  - Updated `RegisteredUserController` to use `redirect()->intended(...)`, ensuring unauthenticated invitees opening an invitation link are redirected directly to the meeting room after registration or login.
+- **Dashboard & UI**:
+  - "Start Now" and "Schedule for Later" creation modes.
+  - Browser IANA timezone detection (`Intl.DateTimeFormat().resolvedOptions().timeZone`) displayed explicitly.
+  - Separate sections: "Upcoming Scheduled Meetings" (ordered by start time ascending) and "Instant & Past Meetings" (without labeling past meetings as "completed").
+  - Owner edit modal and confirmation dialogs.
+  - Resilient invitation link copying with fallback prompt.
+- **Verification**:
+  - 50 automated tests passing (251 assertions), including 10 dedicated scheduling, timezone conversion, editing, and invitation flow tests (`MeetingSchedulingTest`).
+  - Live Prosody protocol & JWT verification passed all 7 checks.
+  - Vite production bundle compiled cleanly in 1.2s.
+

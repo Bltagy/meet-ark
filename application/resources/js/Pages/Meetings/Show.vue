@@ -26,28 +26,61 @@ const loadError = ref(null);
 
 let jitsiApi = null;
 
+const userTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+
+const formatDateTime = (isoString) => {
+    if (!isoString) return '';
+    try {
+        return new Intl.DateTimeFormat(undefined, {
+            dateStyle: 'medium',
+            timeStyle: 'short',
+            timeZone: userTimeZone,
+        }).format(new Date(isoString));
+    } catch (e) {
+        return new Date(isoString).toLocaleString();
+    }
+};
+
 const copyInvitationLink = async () => {
+    const url = props.meeting.invitation_url;
     try {
         if (navigator.clipboard && navigator.clipboard.writeText) {
-            await navigator.clipboard.writeText(props.meeting.invitation_url);
-        } else {
-            const textArea = document.createElement('textarea');
-            textArea.value = props.meeting.invitation_url;
-            textArea.style.position = 'fixed';
-            textArea.style.left = '-999999px';
-            document.body.appendChild(textArea);
-            textArea.focus();
-            textArea.select();
-            document.execCommand('copy');
-            textArea.remove();
+            await navigator.clipboard.writeText(url);
+            isCopied.value = true;
+            setTimeout(() => {
+                isCopied.value = false;
+            }, 2000);
+            return;
         }
-        isCopied.value = true;
-        setTimeout(() => {
-            isCopied.value = false;
-        }, 2000);
+        fallbackCopy(url);
     } catch (e) {
-        console.error('Failed to copy invitation link:', e);
+        fallbackCopy(url);
     }
+};
+
+const fallbackCopy = (text) => {
+    try {
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-999999px';
+        textArea.style.top = '-999999px';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        const successful = document.execCommand('copy');
+        document.body.removeChild(textArea);
+        if (successful) {
+            isCopied.value = true;
+            setTimeout(() => {
+                isCopied.value = false;
+            }, 2000);
+            return;
+        }
+    } catch (e) {
+        // execCommand failed
+    }
+    window.prompt('Copy invitation link:', text);
 };
 
 const loadJitsiScript = () => {
@@ -134,12 +167,33 @@ onUnmounted(() => {
         <template #header>
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
-                    <h2 class="text-xl font-semibold leading-tight text-gray-800">
-                        {{ meeting.title }}
-                    </h2>
-                    <p class="text-xs text-gray-500 font-mono mt-0.5">
-                        Room: {{ meeting.room_name }}
-                    </p>
+                    <div class="flex items-center gap-2">
+                        <h2 class="text-xl font-semibold leading-tight text-gray-800">
+                            {{ meeting.title }}
+                        </h2>
+                        <span
+                            v-if="meeting.is_scheduled"
+                            class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200"
+                        >
+                            Scheduled
+                        </span>
+                        <span
+                            v-else
+                            class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700 border border-gray-200"
+                        >
+                            Instant
+                        </span>
+                    </div>
+                    <div class="text-xs text-gray-500 mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                        <span v-if="meeting.is_scheduled">
+                            📅 <strong>{{ formatDateTime(meeting.starts_at) }}</strong> ({{ userTimeZone }}) • ⏱️ {{ meeting.duration_minutes }} mins
+                        </span>
+                        <span v-else>
+                            Created: {{ formatDateTime(meeting.created_at) }}
+                        </span>
+                        <span>•</span>
+                        <span class="font-mono">Room: {{ meeting.room_name }}</span>
+                    </div>
                 </div>
 
                 <div class="flex items-center gap-2">
