@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\ParsesMeetingDates;
 use App\Models\Meeting;
 use App\Services\JitsiTokenService;
 use Carbon\Carbon;
@@ -14,6 +15,7 @@ use Inertia\Response;
 
 class MeetingController extends Controller
 {
+    use ParsesMeetingDates;
     /**
      * Display a listing of meetings created by the authenticated user.
      */
@@ -84,7 +86,7 @@ class MeetingController extends Controller
         if ($isScheduled) {
             if (!$request->filled('starts_at')) {
                 throw ValidationException::withMessages([
-                    'starts_at' => 'The scheduled start time is required for scheduled meetings.',
+                    'starts_at' => __('The scheduled start time is required for scheduled meetings.'),
                 ]);
             }
 
@@ -95,23 +97,21 @@ class MeetingController extends Controller
 
             if ($startsAt->isPast()) {
                 throw ValidationException::withMessages([
-                    'starts_at' => 'The scheduled start time must be in the future.',
+                    'starts_at' => __('The scheduled start time must be in the future.'),
                 ]);
             }
 
             $duration = (int) $request->input('duration_minutes', 60);
             if ($duration < 1) {
                 throw ValidationException::withMessages([
-                    'duration_minutes' => 'The duration must be at least 1 minute.',
+                    'duration_minutes' => __('The duration must be at least 1 minute.'),
                 ]);
             }
         }
 
         // Generate a cryptographically random, collision-resistant room name on the backend.
         // Arbitrary room names from the client are strictly rejected.
-        do {
-            $roomName = 'meet-' . Str::lower(Str::random(12));
-        } while (Meeting::where('room_name', $roomName)->exists());
+        $roomName = Meeting::generateRoomName();
 
         $meeting = $request->user()->meetings()->create([
             'title' => $validated['title'],
@@ -160,7 +160,7 @@ class MeetingController extends Controller
     public function update(Request $request, Meeting $meeting): RedirectResponse
     {
         if ($meeting->owner_id !== $request->user()->id) {
-            abort(403, 'Only the meeting owner can edit this meeting.');
+            abort(403, __('Only the meeting owner can edit this meeting.'));
         }
 
         $validated = $request->validate([
@@ -197,7 +197,7 @@ class MeetingController extends Controller
                 if ($isDateChanged) {
                     if ($startsAt->isPast()) {
                         throw ValidationException::withMessages([
-                            'starts_at' => 'The scheduled start time must be in the future.',
+                            'starts_at' => __('The scheduled start time must be in the future.'),
                         ]);
                     }
                     $meeting->starts_at = $startsAt;
@@ -227,41 +227,11 @@ class MeetingController extends Controller
     public function destroy(Request $request, Meeting $meeting): RedirectResponse
     {
         if ($meeting->owner_id !== $request->user()->id) {
-            abort(403, 'Only the meeting owner can delete this meeting.');
+            abort(403, __('Only the meeting owner can delete this meeting.'));
         }
 
         $meeting->delete();
 
         return redirect()->route('dashboard');
-    }
-
-    /**
-     * Parse date string with timezone awareness into UTC Carbon instance.
-     * Throws ValidationException on invalid format or unknown timezone rather than 500 error.
-     */
-    protected function parseStartsAt(string $dateString, ?string $timezone = null): Carbon
-    {
-        $trimmed = trim($dateString);
-
-        if ($timezone && !in_array($timezone, timezone_identifiers_list(), true)) {
-            throw ValidationException::withMessages([
-                'timezone' => 'The selected timezone is invalid.',
-            ]);
-        }
-
-        try {
-            // If string contains explicit timezone offset or Z, parse directly and convert to UTC
-            if (preg_match('/(Z|[+-]\d{2}:?\d{2})$/i', $trimmed)) {
-                return Carbon::parse($trimmed)->utc();
-            }
-
-            // Otherwise, interpret in the provided timezone (or UTC if none given) and convert to UTC
-            $tz = $timezone ?: 'UTC';
-            return Carbon::parse($trimmed, $tz)->utc();
-        } catch (\Throwable $e) {
-            throw ValidationException::withMessages([
-                'starts_at' => 'The provided scheduled start time is invalid.',
-            ]);
-        }
     }
 }

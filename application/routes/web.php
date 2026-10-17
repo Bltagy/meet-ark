@@ -1,10 +1,14 @@
 <?php
 
+use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\MeetingController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
+
+Route::post('/locale', [LocaleController::class, 'update'])->name('locale.update');
+Route::get('/locale/{locale}', [LocaleController::class, 'set'])->name('locale.set');
 
 Route::get('/', function () {
     return Inertia::render('Welcome', [

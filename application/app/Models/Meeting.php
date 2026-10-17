@@ -41,4 +41,16 @@ class Meeting extends Model
     {
         return $this->belongsTo(User::class, 'owner_id');
     }
+
+    /**
+     * Generate a cryptographically random, collision-resistant room name.
+     */
+    public static function generateRoomName(): string
+    {
+        do {
+            $roomName = 'meet-' . \Illuminate\Support\Str::lower(\Illuminate\Support\Str::random(12));
+        } while (static::where('room_name', $roomName)->exists());
+
+        return $roomName;
+    }
 }

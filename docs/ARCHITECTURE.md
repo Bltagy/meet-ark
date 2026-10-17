@@ -160,3 +160,26 @@ In `.env` on the server:
   ```bash
   docker compose --profile recording up -d
   ```
+
+---
+
+## 6. Multi-Platform Client Roadmap (Web, Mobile, Desktop)
+
+Meet-Ark must eventually support Web, Mobile (Android, iOS), and Desktop (Windows, macOS) clients.
+
+### Roadmap Execution Order
+1. **Complete the Usable Web Application**: Ensure full responsiveness, Arabic/English bilingual capability with RTL/LTR layout, resilient scheduling, and secure meeting rooms in the web client.
+2. **Add a Small Authenticated API**: When client development begins, introduce lightweight REST/JSON endpoints reusing core Laravel authorization, scheduling, and token issuance services without modifying working web controllers.
+3. **Validate Jitsi Integration on Android & iOS**: Test native mobile Jitsi Meet SDK integration for authentication, media, backgrounding, and call management.
+4. **Validate Windows & macOS Integration before Choosing Framework**:
+   - Conduct a small desktop proof-of-concept evaluating **Flutter Desktop** versus an **Electron-based approach**.
+   - Do **not** assume the mobile Jitsi SDK supports Flutter desktop.
+   - Do **not** assume desktop screen sharing, system-audio capture, window selection, and permission prompts behave identically across Windows and macOS.
+   - Validate packaging, auto-update, audio/video permissions, and signing requirements before committing to a desktop technology stack.
+
+### Client-Ready Backend Design Principles
+- Keep meeting authorization, scheduling, and room-scoped JWT token issuance in backend services reusable by future API controllers.
+- Separate Inertia-specific response rendering from reusable domain logic where practical.
+- Keep public application and Jitsi URLs dynamically configurable.
+- Maintain clean, structured translation dictionaries (JSON) so terminology can be adapted by mobile and desktop clients without forcing a shared translation runtime across platforms.
+

@@ -1,10 +1,10 @@
 # Resume Note: Linux Server Production Deployment
 
 **Date**: 2026-10-17  
-**Current Milestone**: Milestone 4 Released to Production (Meeting Scheduling & Clearer Dashboard Live)  
-**Previous Milestone**: Initial Linux Server Production Deployment COMPLETE  
-**Deployed Revision**: `6ea79c2` (`git@github.com:Bltagy/meet-ark.git`)  
-**Previous Revision**: `b5025dc`  
+**Current Milestone**: Milestone 6 Completed Locally (Minimal Authenticated API for Mobile & Desktop Clients)  
+**Previous Milestone**: Milestone 5 Completed Locally (Arabic & English Bilingual Support & Responsive Usability Pass)  
+**Local Status**: Work locally only (no push or deployment to production server)  
+**Deployed Production Revision**: `6ea79c2` (`git@github.com:Bltagy/meet-ark.git`)  
 **Server**: `devark` (`192.248.191.76`), Ubuntu 24.04 LTS (x86_64)  
 **Deployment Path**: `/var/www/html/meet-ark`
 
@@ -204,5 +204,137 @@ Executed live against the running Prosody BOSH endpoint (`https://web:443/http-b
   - Ran additive migration `2026_10_17_000001_add_scheduling_to_meetings_table` explicitly via production app.
   - Recreated only `meet-ark-app-1` with zero interruption to Jitsi, PostgreSQL, NPM, or unrelated containers.
   - Live production smoke checks verified user registration, future meeting scheduling with IANA timezone conversion, dashboard display under upcoming meetings, title and duration editing with exact room name preservation, Jitsi URL integration, and JWT token issuance. Disposable records cleanly purged.
+
+---
+
+## 9. Milestone 5: Arabic & English Bilingual Support and Responsive Usability Pass (Local Only)
+
+**Status**: Completed Locally (No push or deploy per instructions)
+
+### A. Language Support & Locale Persistence
+1. **Locale Management & Flash Prevention**:
+   - Implemented [app/Http/Middleware/SetLocale.php](file:///Users/ahmedbltagy/Desktop/Work/meet-ark/application/app/Http/Middleware/SetLocale.php): reads unencrypted `locale` cookie; defaults to `'ar'` (Arabic) on first visit; sets `App::setLocale()`.
+   - Excluded `locale` cookie from encryption via `encryptCookies(except: ['locale'])` in [bootstrap/app.php](file:///Users/ahmedbltagy/Desktop/Work/meet-ark/application/bootstrap/app.php), enabling synchronous client-side cookie reading/writing.
+   - Root template [resources/views/app.blade.php](file:///Users/ahmedbltagy/Desktop/Work/meet-ark/application/resources/views/app.blade.php) server-renders `<html lang="{{ $locale }}" dir="{{ $dir }}">` before frontend hydration, completely eliminating layout or language direction flashing.
+   - Added Cairo font alongside Figtree for Arabic typography via Google Fonts and configured in `tailwind.config.js`.
+   - Controller [app/Http/Controllers/LocaleController.php](file:///Users/ahmedbltagy/Desktop/Work/meet-ark/application/app/Http/Controllers/LocaleController.php) exposes `POST /locale` and `GET /locale/{locale}` saving a 1-year unencrypted `locale` cookie (`sameSite: 'lax', httpOnly: false`).
+   - Shared reactive `locale` and `dir` Inertia props via [app/Http/Middleware/HandleInertiaRequests.php](file:///Users/ahmedbltagy/Desktop/Work/meet-ark/application/app/Http/Middleware/HandleInertiaRequests.php).
+
+2. **Frontend Translation Structure & Switcher**:
+   - Translation dictionaries: [resources/js/locales/en.json](file:///Users/ahmedbltagy/Desktop/Work/meet-ark/application/resources/js/locales/en.json) and [resources/js/locales/ar.json](file:///Users/ahmedbltagy/Desktop/Work/meet-ark/application/resources/js/locales/ar.json).
+   - Global translation helper [resources/js/i18n.js](file:///Users/ahmedbltagy/Desktop/Work/meet-ark/application/resources/js/i18n.js) providing `$t()`, reactive locale state, client cookie update, and `formatMeetingTime()`.
+   - Component [resources/js/Components/LanguageSwitcher.vue](file:///Users/ahmedbltagy/Desktop/Work/meet-ark/application/resources/js/Components/LanguageSwitcher.vue): visible toggle button embedded in desktop headers, mobile menus, guest navigation, and welcome screen.
+   - Comprehensive translation across all application-owned pages:
+     - Navigation & branding.
+     - Authentication flows (`Login.vue`, `Register.vue`, `ForgotPassword.vue`, `ResetPassword.vue`, `ConfirmPassword.vue`, `VerifyEmail.vue`).
+     - Dashboard (`Dashboard.vue`) with schedule/start modes, list sections, empty states, and delete/cancel confirmations.
+     - Meeting room page (`Meetings/Show.vue`) with controls, host badges, copy feedback, and exit buttons.
+     - User Profile (`Edit.vue`, `UpdateProfileInformationForm.vue`, `UpdatePasswordForm.vue`, `DeleteUserForm.vue`).
+   - Backend validation & messages: [lang/ar/validation.php](file:///Users/ahmedbltagy/Desktop/Work/meet-ark/application/lang/ar/validation.php) and [lang/ar.json](file:///Users/ahmedbltagy/Desktop/Work/meet-ark/application/lang/ar.json), plus localized `MeetingController` error messages (`__('...')`).
+
+3. **Preserved Boundaries & RTL Legibility**:
+   - Meeting titles entered by users are strictly preserved as-is.
+   - URLs, email inputs, technical tokens, room names, and timezone identifiers are wrapped with `dir="ltr"` and `text-start` for pristine readability in RTL layouts.
+
+### B. Dates & Scheduling
+- Displayed dates formatted with `Intl.DateTimeFormat(locale, ...)` using the viewer's detected or stored IANA timezone and active language.
+- Timezone pill remains explicitly visible next to all timestamps.
+- Scheduling input preserves UTC conversion (`Carbon::parse($date, $timezone)->utc()`). Localized display strings are never parsed back into scheduling values.
+- Locale toggling does not alter the underlying date/time or scheduled instant.
+
+### C. Jitsi Integration & Locale Passing
+- Inspected installed Jitsi Web image (`stable-9955`); confirmed native presence of `/usr/share/jitsi-meet/lang/main-ar.json` and `countries-ar.json`.
+- In [resources/js/Pages/Meetings/Show.vue](file:///Users/ahmedbltagy/Desktop/Work/meet-ark/application/resources/js/Pages/Meetings/Show.vue), initialized `JitsiMeetExternalAPI` with:
+  - `lang: props.locale`
+  - `configOverwrite: { defaultLanguage: props.locale }`
+- Verified Jitsi is neither forked nor rebuilt.
+- Active meetings are never torn down or re-instantiated upon language switch; the selected language seamlessly applies on next join.
+
+### D. Responsive Usability Pass
+- **Phone / Mobile Viewports (320px - 430px)**:
+  - Eliminated horizontal overflow with responsive padding (`px-3 sm:px-6 lg:px-8`).
+  - Action buttons and timezone indicators styled with `flex-wrap` and adaptive sizing (`text-xs sm:text-sm`).
+  - Creation mode toggles and duration options flex cleanly on narrow screens.
+  - Meeting edit modal constrained to `max-h-[85vh] overflow-y-auto` so all inputs and buttons remain accessible regardless of viewport height.
+  - Jitsi meeting iframe container sized dynamically with `min-h-[460px] sm:min-h-[550px] h-[calc(100vh-210px)] sm:h-[calc(100vh-220px)]`, maximizing usable video area on mobile screens.
+- **RTL & LTR Symmetry**:
+  - Replaced directional margins with Tailwind `space-x-reverse`, `rtl:space-x-reverse`, and logical flex utilities.
+  - Copy-link button feedback works symmetrically in both directions.
+
+### E. Verification Results
+1. **Automated Backend & Locale Suite**:
+   - Added [tests/Feature/LocaleTest.php](file:///Users/ahmedbltagy/Desktop/Work/meet-ark/application/tests/Feature/LocaleTest.php) with 8 dedicated tests (115 assertions):
+     - First visit defaults to Arabic (`ar`) with `dir="rtl"`.
+     - Explicit choice persisted in unencrypted `locale` cookie.
+     - Language switch updates cookie and reflects in response.
+     - Direction helper maps `ar` -> `rtl` and `en` -> `ltr`.
+     - Localized validation messages returned in Arabic and English.
+     - Scheduled meeting preserves identical UTC instant across locale changes.
+   - Full PHPUnit test suite: **61 passed (380 assertions)** via `docker compose exec app php artisan test`.
+2. **Live Jitsi Protocol & Authentication**:
+   - Executed `scripts/verify_jitsi_jwt.php`: **7/7 passed**.
+3. **Frontend Production Build**:
+   - `docker compose exec app npm run build` completed in 1.72s with zero warnings or errors.
+4. **Browser Testing**:
+   - Automated driver download unavailable on ARM64 (`playwright-1.57.0-mac-arm64.zip` 404). Per instructions: **NOT TESTED** via browser automation.
+   - Manual verification checklist provided below.
+
+---
+
+## 10. Multi-Platform Client Roadmap
+
+Recorded in [docs/ARCHITECTURE.md](file:///Users/ahmedbltagy/Desktop/Work/meet-ark/docs/ARCHITECTURE.md) (Section 6) and summarized here for upcoming milestones:
+
+### Sequential Phases
+1. **Complete the usable web application** (Achieved: responsive bilingual web app with scheduling, token auth, host moderation, and dashboard).
+2. **Add a small authenticated API for mobile/desktop** when dedicated client development commences:
+   - Reuse existing `MeetingController` / `JitsiTokenService` business logic rather than duplicating code.
+   - Add token authentication (e.g. Laravel Sanctum).
+   - Keep public application and Jitsi URLs configurable via `.env` without hardcoded domains.
+3. **Validate Jitsi integration on Android and iOS**:
+   - Leverage official Jitsi Meet SDKs (`jitsi-meet-sdk` for React Native / native Android/iOS).
+   - Validate camera/mic background permissions, CallKit / ConnectionService, and token passing.
+4. **Validate Windows and macOS desktop apps**:
+   - **Critical Architecture Caveats**:
+     - Do not assume the mobile Jitsi SDK supports Flutter desktop.
+     - Do not assume desktop screen sharing, system-audio capture, and window picking behave identically across platforms.
+   - Perform a focused desktop Proof of Concept (PoC) evaluating **Flutter Desktop** vs. an **Electron-based wrapper** before finalizing the framework choice.
+
+### Translation Reusability
+- JSON translations in `resources/js/locales/` follow standard key-value conventions (`section.key`) that can be translated or imported into mobile/desktop frameworks (e.g. Arb files for Flutter, JSON for Electron/React Native) without forcing an awkward monolithic translation layer.
+
+---
+
+## 11. Milestone 6: Minimal Authenticated API for Mobile & Desktop Clients (Local Only)
+
+**Status**: Completed Locally (Local isolated testing only, no deployment or push)
+
+### A. Implemented Architecture & Endpoints (`/api/v1`)
+1. **Authentication (Laravel Sanctum)**:
+   - `POST /api/v1/register`: validates input, rate limited (10/min), bounded `device_name` (max 100 chars), issues finite personal access token (30 days default) with explicit UTC expiry.
+   - `POST /api/v1/login`: validates credentials, rate limited (10/min), bounded `device_name`, issues personal access token with explicit UTC expiry.
+   - `POST /api/v1/logout`: revokes only the current API token; tokens on other devices remain valid.
+   - `GET /api/v1/me`: returns authenticated user profile.
+   - Unauthenticated API requests return JSON 401 (`{"message": "Unauthenticated."}`), never HTML redirects.
+2. **Meetings Management & Shared Logic**:
+   - `GET /api/v1/meetings`: paginated meetings for current user (`data`, `links`, `meta`), user-isolated, ordinary responses never contain Jitsi JWTs.
+   - `POST /api/v1/meetings`: instant or scheduled meeting creation; cryptographically generates `room_name` via backend; converts timezones to UTC.
+   - `GET /api/v1/meetings/{id}`: invitation details accessible to any authenticated user under existing invitation policy; does not include JWT.
+   - `PATCH /api/v1/meetings/{id}`: owner only (403 for non-owners); updates title, schedule, duration while strictly preserving `room_name`.
+   - `DELETE /api/v1/meetings/{id}`: owner only (403 for non-owners); deletes meeting record.
+   - `POST /api/v1/meetings/{id}/join`: generates short-lived Jitsi JWT (5-minute TTL) via existing `JitsiTokenService`; returns `jitsi_url`, `room_name`, `token`, `expires_at`, `is_moderator`; sets `Cache-Control: no-store, private`; deleted meetings cannot issue join tokens (404).
+3. **Shared Logic Extraction**:
+   - Extracted `Meeting::generateRoomName()` and `ParsesMeetingDates` trait for clean reuse between web and API controllers without code duplication or calling Inertia controllers.
+4. **Locale Support (`Accept-Language`)**:
+   - Updated `SetLocale` middleware to inspect `Accept-Language` on API routes (`ar` or `en`) with documented fallback to Arabic (`ar`).
+   - Web application cookie-based locale persistence preserved 100%.
+
+### B. Documentation & Verification
+- **Documentation**: Created [docs/API.md](file:///Users/ahmedbltagy/Desktop/Work/meet-ark/docs/API.md) with complete endpoint specifications, curl examples, authentication details, status codes, pagination, and scheduling timezone semantics.
+- **Automated Tests**:
+  - `tests/Feature/Api/AuthApiTest.php` (9 tests)
+  - `tests/Feature/Api/MeetingApiTest.php` (13 tests)
+  - Full PHPUnit suite: **83 passed (587 assertions)** in isolated SQLite test database.
+- **Live Protocol Checks**: `scripts/verify_jitsi_jwt.php` passed all 7 live Prosody checks.
 
 

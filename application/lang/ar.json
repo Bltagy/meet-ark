@@ -1,0 +1,15 @@
+{
+    "The scheduled start time is required for scheduled meetings.": "وقت البدء المحدد مطلوب للاجتماعات المجدولة.",
+    "The scheduled start time must be in the future.": "يجب أن يكون وقت البدء المجدول في المستقبل.",
+    "The duration must be at least 1 minute.": "يجب أن تكون المدة دقيقة واحدة على الأقل.",
+    "The selected timezone is invalid.": "المنطقة الزمنية المحددة غير صالحة.",
+    "The provided scheduled start time is invalid.": "وقت البدء المجدول المحدد غير صالح.",
+    "Only the meeting owner can edit this meeting.": "مالك الاجتماع فقط يمكنه تعديل هذا الاجتماع.",
+    "Only the meeting owner can delete this meeting.": "مالك الاجتماع فقط يمكنه حذف هذا الاجتماع.",
+    "User registered successfully.": "تم تسجيل المستخدم بنجاح.",
+    "Authenticated successfully.": "تم تسجيل الدخول بنجاح.",
+    "Successfully logged out.": "تم تسجيل الخروج بنجاح.",
+    "Meeting created successfully.": "تم إنشاء الاجتماع بنجاح.",
+    "Meeting updated successfully.": "تم تحديث الاجتماع بنجاح.",
+    "Meeting deleted successfully.": "تم حذف الاجتماع بنجاح."
+}

@@ -6,6 +6,7 @@ import Modal from '@/Components/Modal.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import SecondaryButton from '@/Components/SecondaryButton.vue';
 import TextInput from '@/Components/TextInput.vue';
+import { formatMeetingTime, useI18n } from '@/i18n';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 
@@ -23,6 +24,8 @@ const props = defineProps({
         default: () => [],
     },
 });
+
+const { locale, t } = useI18n();
 
 // Detect viewer's IANA timezone
 const userTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
@@ -115,12 +118,12 @@ const fallbackCopy = (text, id) => {
     } catch (e) {
         // execCommand failed
     }
-    window.prompt('Copy invitation link:', text);
+    window.prompt(locale.value === 'ar' ? 'انسخ رابط الدعوة:' : 'Copy invitation link:', text);
 };
 
 // Delete meeting
 const deleteMeeting = (meeting) => {
-    if (confirm(`Delete meeting "${meeting.title}"?\n\nDeleting this meeting will prevent any future access or token issuance.`)) {
+    if (confirm(t('dashboard.deleteConfirm', { title: meeting.title }))) {
         useForm({}).delete(route('meetings.destroy', meeting.id));
     }
 };
@@ -171,69 +174,60 @@ const submitEdit = () => {
 };
 
 // Date / Time display formatter
-const formatMeetingTime = (isoString) => {
-    if (!isoString) return '';
-    try {
-        return new Intl.DateTimeFormat(undefined, {
-            dateStyle: 'medium',
-            timeStyle: 'short',
-            timeZone: userTimeZone,
-        }).format(new Date(isoString));
-    } catch (e) {
-        return new Date(isoString).toLocaleString();
-    }
+const formatMeetingDisplay = (isoString) => {
+    return formatMeetingTime(isoString, locale.value, userTimeZone);
 };
 </script>
 
 <template>
-    <Head title="Dashboard" />
+    <Head :title="$t('dashboard.title')" />
 
     <AuthenticatedLayout>
         <template #header>
             <h2 class="text-xl font-semibold leading-tight text-gray-800">
-                Dashboard
+                {{ $t('dashboard.title') }}
             </h2>
         </template>
 
-        <div class="py-8">
-            <div class="mx-auto max-w-7xl space-y-8 sm:px-6 lg:px-8">
+        <div class="py-6 sm:py-8">
+            <div class="mx-auto max-w-7xl space-y-6 sm:space-y-8 px-4 sm:px-6 lg:px-8">
                 <!-- Create & Schedule Meeting Card -->
-                <div class="bg-white p-6 shadow-sm sm:rounded-lg">
+                <div class="bg-white p-4 sm:p-6 shadow-xs rounded-lg">
                     <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-4 mb-4 border-b border-gray-100 gap-4">
                         <div>
                             <h3 class="text-lg font-medium text-gray-900">
-                                Create or Schedule Meeting
+                                {{ $t('dashboard.createTitle') }}
                             </h3>
                             <p class="text-xs text-gray-500 mt-0.5">
-                                Start an instant video conference or schedule an upcoming meeting with a shareable link.
+                                {{ $t('dashboard.createDesc') }}
                             </p>
                         </div>
 
                         <!-- Mode Switcher Buttons -->
-                        <div class="inline-flex rounded-md shadow-sm p-1 bg-gray-100">
+                        <div class="inline-flex w-full sm:w-auto rounded-md shadow-xs p-1 bg-gray-100">
                             <button
                                 type="button"
                                 @click="switchMode('instant')"
                                 :class="[
-                                    'px-3 py-1.5 text-xs font-medium rounded-md transition-colors',
+                                    'flex-1 sm:flex-initial px-3 py-1.5 text-xs font-medium rounded-md transition-colors text-center',
                                     createMode === 'instant'
                                         ? 'bg-white text-gray-900 shadow-xs'
                                         : 'text-gray-600 hover:text-gray-900'
                                 ]"
                             >
-                                Start Now
+                                {{ $t('dashboard.startNow') }}
                             </button>
                             <button
                                 type="button"
                                 @click="switchMode('scheduled')"
                                 :class="[
-                                    'px-3 py-1.5 text-xs font-medium rounded-md transition-colors',
+                                    'flex-1 sm:flex-initial px-3 py-1.5 text-xs font-medium rounded-md transition-colors text-center',
                                     createMode === 'scheduled'
                                         ? 'bg-white text-gray-900 shadow-xs'
                                         : 'text-gray-600 hover:text-gray-900'
                                 ]"
                             >
-                                Schedule for Later
+                                {{ $t('dashboard.scheduleForLater') }}
                             </button>
                         </div>
                     </div>
@@ -241,13 +235,13 @@ const formatMeetingTime = (isoString) => {
                     <form @submit.prevent="submitCreate" class="space-y-4">
                         <!-- Meeting Title -->
                         <div>
-                            <InputLabel for="create-title" value="Meeting Title" />
+                            <InputLabel for="create-title" :value="$t('dashboard.meetingTitle')" />
                             <TextInput
                                 id="create-title"
                                 type="text"
                                 class="mt-1 block w-full"
                                 v-model="createForm.title"
-                                placeholder="e.g. Engineering Architecture Sync"
+                                :placeholder="t('dashboard.meetingTitlePlaceholder')"
                                 required
                                 autofocus
                             />
@@ -257,36 +251,38 @@ const formatMeetingTime = (isoString) => {
                         <!-- Scheduled Fields (Conditional) -->
                         <div v-if="createMode === 'scheduled'" class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 bg-gray-50 p-4 rounded-lg border border-gray-200">
                             <div>
-                                <InputLabel for="starts_at" value="Date & Time" />
+                                <InputLabel for="starts_at" :value="$t('dashboard.dateTime')" />
                                 <input
                                     id="starts_at"
                                     type="datetime-local"
-                                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
+                                    class="mt-1 block w-full rounded-md border-gray-300 shadow-xs focus:border-indigo-500 focus:ring-indigo-500 text-sm"
+                                    dir="ltr"
                                     v-model="createForm.starts_at"
                                     :min="minDateTime"
                                     required
                                 />
-                                <div class="mt-1.5 flex items-center text-xs text-gray-500">
-                                    <span class="inline-block w-2 h-2 rounded-full bg-emerald-500 mr-1.5"></span>
-                                    <span>Timezone: <strong class="text-gray-700">{{ userTimeZone }}</strong></span>
+                                <div class="mt-1.5 flex items-center text-xs text-gray-500 flex-wrap gap-1">
+                                    <span class="inline-block w-2 h-2 rounded-full bg-emerald-500 me-1.5 shrink-0"></span>
+                                    <span>{{ $t('dashboard.timezoneLabel') }} <strong class="text-gray-700 font-sans" dir="ltr">{{ userTimeZone }}</strong></span>
                                 </div>
                                 <InputError class="mt-1" :message="createForm.errors.starts_at" />
                             </div>
 
                             <div>
-                                <InputLabel for="duration_minutes" value="Planned Duration (minutes)" />
+                                <InputLabel for="duration_minutes" :value="$t('dashboard.durationMinutes')" />
                                 <TextInput
                                     id="duration_minutes"
                                     type="number"
                                     min="1"
                                     max="1440"
                                     step="5"
-                                    class="mt-1 block w-full"
+                                    class="mt-1 block w-full text-start"
+                                    dir="ltr"
                                     v-model="createForm.duration_minutes"
                                     required
                                 />
                                 <p class="mt-1.5 text-xs text-gray-500">
-                                    Informational only; meetings do not cut off automatically.
+                                    {{ $t('dashboard.durationHint') }}
                                 </p>
                                 <InputError class="mt-1" :message="createForm.errors.duration_minutes" />
                             </div>
@@ -295,18 +291,18 @@ const formatMeetingTime = (isoString) => {
                         <!-- Actions -->
                         <div class="flex items-center justify-end pt-2">
                             <PrimaryButton :disabled="createForm.processing">
-                                {{ createMode === 'instant' ? 'Start Meeting Now' : 'Schedule Meeting' }}
+                                {{ createMode === 'instant' ? $t('dashboard.startMeetingNow') : $t('dashboard.scheduleMeeting') }}
                             </PrimaryButton>
                         </div>
                     </form>
                 </div>
 
                 <!-- Upcoming Scheduled Meetings Section -->
-                <div class="bg-white p-6 shadow-sm sm:rounded-lg">
+                <div class="bg-white p-4 sm:p-6 shadow-xs rounded-lg">
                     <div class="flex items-center justify-between pb-3 mb-4 border-b border-gray-100">
                         <div class="flex items-center gap-2">
                             <h3 class="text-lg font-medium text-gray-900">
-                                Upcoming Scheduled Meetings
+                                {{ $t('dashboard.upcomingMeetings') }}
                             </h3>
                             <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-800">
                                 {{ upcomingMeetings.length }}
@@ -315,7 +311,7 @@ const formatMeetingTime = (isoString) => {
                     </div>
 
                     <div v-if="upcomingMeetings.length === 0" class="text-center py-8 text-gray-500 text-sm">
-                        No upcoming meetings scheduled. Choose <strong>Schedule for Later</strong> above to plan a future meeting.
+                        {{ $t('dashboard.noUpcoming') }}
                     </div>
 
                     <div v-else class="divide-y divide-gray-100">
@@ -325,22 +321,22 @@ const formatMeetingTime = (isoString) => {
                             class="py-4 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-gray-50/50 rounded-md px-2 transition-colors"
                         >
                             <div class="space-y-1">
-                                <div class="flex items-center gap-2">
+                                <div class="flex items-center gap-2 flex-wrap">
                                     <h4 class="text-base font-semibold text-gray-900">
                                         {{ meeting.title }}
                                     </h4>
                                     <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                        Upcoming
+                                        {{ $t('dashboard.upcomingBadge') }}
                                     </span>
                                 </div>
                                 <div class="text-xs text-gray-600 flex flex-wrap items-center gap-x-3 gap-y-1">
                                     <span>
-                                        📅 <strong>{{ formatMeetingTime(meeting.starts_at) }}</strong> ({{ userTimeZone }})
+                                        📅 <strong>{{ formatMeetingDisplay(meeting.starts_at) }}</strong> <span dir="ltr">({{ userTimeZone }})</span>
                                     </span>
                                     <span>•</span>
-                                    <span>⏱️ {{ meeting.duration_minutes }} mins</span>
+                                    <span>⏱️ {{ meeting.duration_minutes }} {{ $t('common.mins') }}</span>
                                     <span>•</span>
-                                    <span class="font-mono text-gray-500">Room: {{ meeting.room_name }}</span>
+                                    <span class="font-mono text-gray-500" dir="ltr">{{ $t('common.room') }}: {{ meeting.room_name }}</span>
                                 </div>
                             </div>
 
@@ -350,27 +346,27 @@ const formatMeetingTime = (isoString) => {
                                     @click="copyLink(meeting)"
                                     class="inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-xs text-xs font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-indigo-500"
                                 >
-                                    {{ copiedId === meeting.id ? 'Copied!' : 'Copy Link' }}
+                                    {{ copiedId === meeting.id ? $t('common.copied') : $t('common.copyLink') }}
                                 </button>
                                 <Link
                                     :href="meeting.url"
                                     class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-indigo-500"
                                 >
-                                    Join Meeting
+                                    {{ $t('dashboard.joinMeeting') }}
                                 </Link>
                                 <button
                                     type="button"
                                     @click="openEditModal(meeting)"
                                     class="inline-flex items-center px-2.5 py-1.5 border border-gray-300 text-xs font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-indigo-500"
                                 >
-                                    Edit
+                                    {{ $t('common.edit') }}
                                 </button>
                                 <button
                                     type="button"
                                     @click="deleteMeeting(meeting)"
                                     class="inline-flex items-center px-2.5 py-1.5 border border-red-200 text-xs font-medium rounded-md text-red-600 hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-red-500"
                                 >
-                                    Delete
+                                    {{ $t('common.delete') }}
                                 </button>
                             </div>
                         </div>
@@ -378,11 +374,11 @@ const formatMeetingTime = (isoString) => {
                 </div>
 
                 <!-- Instant & Past Meetings Section -->
-                <div class="bg-white p-6 shadow-sm sm:rounded-lg">
+                <div class="bg-white p-4 sm:p-6 shadow-xs rounded-lg">
                     <div class="flex items-center justify-between pb-3 mb-4 border-b border-gray-100">
                         <div class="flex items-center gap-2">
                             <h3 class="text-lg font-medium text-gray-900">
-                                Instant & Past Meetings
+                                {{ $t('dashboard.recentMeetings') }}
                             </h3>
                             <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-700">
                                 {{ recentMeetings.length }}
@@ -391,7 +387,7 @@ const formatMeetingTime = (isoString) => {
                     </div>
 
                     <div v-if="recentMeetings.length === 0" class="text-center py-8 text-gray-500 text-sm">
-                        No instant or past meetings found.
+                        {{ $t('dashboard.noRecent') }}
                     </div>
 
                     <div v-else class="divide-y divide-gray-100">
@@ -401,7 +397,7 @@ const formatMeetingTime = (isoString) => {
                             class="py-4 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-gray-50/50 rounded-md px-2 transition-colors"
                         >
                             <div class="space-y-1">
-                                <div class="flex items-center gap-2">
+                                <div class="flex items-center gap-2 flex-wrap">
                                     <h4 class="text-base font-semibold text-gray-900">
                                         {{ meeting.title }}
                                     </h4>
@@ -413,18 +409,18 @@ const formatMeetingTime = (isoString) => {
                                                 : 'bg-gray-50 text-gray-600 border-gray-200'
                                         ]"
                                     >
-                                        {{ meeting.is_scheduled ? 'Past Scheduled' : 'Instant' }}
+                                        {{ meeting.is_scheduled ? $t('dashboard.pastScheduledBadge') : $t('dashboard.instantBadge') }}
                                     </span>
                                 </div>
                                 <div class="text-xs text-gray-500 flex flex-wrap items-center gap-x-3 gap-y-1">
                                     <span v-if="meeting.is_scheduled">
-                                        Scheduled for: {{ formatMeetingTime(meeting.starts_at) }} ({{ userTimeZone }}) • {{ meeting.duration_minutes }} mins
+                                        {{ $t('dashboard.scheduledFor') }} <strong>{{ formatMeetingDisplay(meeting.starts_at) }}</strong> <span dir="ltr">({{ userTimeZone }})</span> • {{ meeting.duration_minutes }} {{ $t('common.mins') }}
                                     </span>
                                     <span v-else>
-                                        Created: {{ formatMeetingTime(meeting.created_at) }}
+                                        {{ $t('dashboard.created') }} {{ formatMeetingDisplay(meeting.created_at) }}
                                     </span>
                                     <span>•</span>
-                                    <span class="font-mono text-gray-500">Room: {{ meeting.room_name }}</span>
+                                    <span class="font-mono text-gray-500" dir="ltr">{{ $t('common.room') }}: {{ meeting.room_name }}</span>
                                 </div>
                             </div>
 
@@ -434,27 +430,27 @@ const formatMeetingTime = (isoString) => {
                                     @click="copyLink(meeting)"
                                     class="inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-xs text-xs font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-indigo-500"
                                 >
-                                    {{ copiedId === meeting.id ? 'Copied!' : 'Copy Link' }}
+                                    {{ copiedId === meeting.id ? $t('common.copied') : $t('common.copyLink') }}
                                 </button>
                                 <Link
                                     :href="meeting.url"
                                     class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-indigo-500"
                                 >
-                                    Join Meeting
+                                    {{ $t('dashboard.joinMeeting') }}
                                 </Link>
                                 <button
                                     type="button"
                                     @click="openEditModal(meeting)"
                                     class="inline-flex items-center px-2.5 py-1.5 border border-gray-300 text-xs font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-indigo-500"
                                 >
-                                    Edit
+                                    {{ $t('common.edit') }}
                                 </button>
                                 <button
                                     type="button"
                                     @click="deleteMeeting(meeting)"
                                     class="inline-flex items-center px-2.5 py-1.5 border border-red-200 text-xs font-medium rounded-md text-red-600 hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-red-500"
                                 >
-                                    Delete
+                                    {{ $t('common.delete') }}
                                 </button>
                             </div>
                         </div>
@@ -465,14 +461,14 @@ const formatMeetingTime = (isoString) => {
 
         <!-- Edit Meeting Modal -->
         <Modal :show="isEditModalOpen" @close="closeEditModal" maxWidth="lg">
-            <div class="p-6">
+            <div class="p-4 sm:p-6 max-h-[85vh] overflow-y-auto">
                 <h3 class="text-lg font-medium text-gray-900 border-b border-gray-100 pb-3 mb-4">
-                    Edit Meeting: {{ editingMeeting?.title }}
+                    {{ $t('dashboard.editModalTitle', { title: editingMeeting?.title }) }}
                 </h3>
 
                 <form @submit.prevent="submitEdit" class="space-y-4">
                     <div>
-                        <InputLabel for="edit-title" value="Meeting Title" />
+                        <InputLabel for="edit-title" :value="$t('dashboard.meetingTitle')" />
                         <TextInput
                             id="edit-title"
                             type="text"
@@ -488,41 +484,43 @@ const formatMeetingTime = (isoString) => {
                         <input
                             id="edit-is-scheduled"
                             type="checkbox"
-                            class="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500"
+                            class="rounded border-gray-300 text-indigo-600 shadow-xs focus:ring-indigo-500"
                             v-model="editForm.is_scheduled"
                         />
                         <label for="edit-is-scheduled" class="text-sm font-medium text-gray-700 select-none">
-                            Schedule for specific date and time
+                            {{ $t('dashboard.scheduleToggle') }}
                         </label>
                     </div>
 
                     <!-- Scheduled Options if enabled -->
                     <div v-if="editForm.is_scheduled" class="space-y-4 bg-gray-50 p-4 rounded-lg border border-gray-200">
                         <div>
-                            <InputLabel for="edit-starts-at" value="Date & Time" />
+                            <InputLabel for="edit-starts-at" :value="$t('dashboard.dateTime')" />
                             <input
                                 id="edit-starts-at"
                                 type="datetime-local"
-                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
+                                class="mt-1 block w-full rounded-md border-gray-300 shadow-xs focus:border-indigo-500 focus:ring-indigo-500 text-sm"
+                                dir="ltr"
                                 v-model="editForm.starts_at"
                                 required
                             />
-                            <div class="mt-1.5 flex items-center text-xs text-gray-500">
-                                <span class="inline-block w-2 h-2 rounded-full bg-emerald-500 mr-1.5"></span>
-                                <span>Timezone: <strong class="text-gray-700">{{ userTimeZone }}</strong></span>
+                            <div class="mt-1.5 flex items-center text-xs text-gray-500 flex-wrap gap-1">
+                                <span class="inline-block w-2 h-2 rounded-full bg-emerald-500 me-1.5 shrink-0"></span>
+                                <span>{{ $t('dashboard.timezoneLabel') }} <strong class="text-gray-700 font-sans" dir="ltr">{{ userTimeZone }}</strong></span>
                             </div>
                             <InputError class="mt-1" :message="editForm.errors.starts_at" />
                         </div>
 
                         <div>
-                            <InputLabel for="edit-duration" value="Planned Duration (minutes)" />
+                            <InputLabel for="edit-duration" :value="$t('dashboard.durationMinutes')" />
                             <TextInput
                                 id="edit-duration"
                                 type="number"
                                 min="1"
                                 max="1440"
                                 step="5"
-                                class="mt-1 block w-full"
+                                class="mt-1 block w-full text-start"
+                                dir="ltr"
                                 v-model="editForm.duration_minutes"
                                 required
                             />
@@ -530,16 +528,16 @@ const formatMeetingTime = (isoString) => {
                         </div>
                     </div>
 
-                    <div class="pt-2 text-xs text-gray-500">
-                        Room Identifier: <span class="font-mono text-gray-700">{{ editingMeeting?.room_name }}</span> (preserved)
+                    <div class="pt-2 text-xs text-gray-500" dir="auto">
+                        {{ $t('dashboard.roomPreserved', { room: editingMeeting?.room_name }) }}
                     </div>
 
                     <div class="flex items-center justify-end gap-3 pt-4 border-t border-gray-100">
                         <SecondaryButton @click="closeEditModal" :disabled="editForm.processing">
-                            Cancel
+                            {{ $t('common.cancel') }}
                         </SecondaryButton>
                         <PrimaryButton :disabled="editForm.processing">
-                            Save Changes
+                            {{ $t('dashboard.saveChanges') }}
                         </PrimaryButton>
                     </div>
                 </form>
