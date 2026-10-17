@@ -14,7 +14,7 @@ use Firebase\JWT\JWT;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
-$boshUrl = 'https://web:443/http-bind';
+$boshUrl = getenv('BOSH_URL') ?: (getenv('APP_ENV') === 'production' ? 'http://web:80/http-bind' : 'https://web:443/http-bind');
 $secret = config('services.jitsi.app_secret', env('JWT_APP_SECRET'));
 $appId = config('services.jitsi.app_id', env('JWT_APP_ID', 'meet_ark_backend'));
 $aud = config('services.jitsi.audience', env('JWT_ACCEPTED_AUDIENCES', 'meet_ark_platform'));
