@@ -1,10 +1,10 @@
 # Resume Note: Linux Server Production Deployment
 
 **Date**: 2026-10-17  
-**Current Milestone**: Milestone 6 Completed Locally (Minimal Authenticated API for Mobile & Desktop Clients)  
+**Current Milestone**: Milestone 6 Released to Production (Bilingual Arabic/English Web & Mobile/Desktop API v1 Live)  
 **Previous Milestone**: Milestone 5 Completed Locally (Arabic & English Bilingual Support & Responsive Usability Pass)  
-**Local Status**: Work locally only (no push or deployment to production server)  
-**Deployed Production Revision**: `6ea79c2` (`git@github.com:Bltagy/meet-ark.git`)  
+**Production Status**: Live on Linux Server (`devark`)  
+**Deployed Production Revision**: `49c8330` (`git@github.com:Bltagy/meet-ark.git`)  
 **Server**: `devark` (`192.248.191.76`), Ubuntu 24.04 LTS (x86_64)  
 **Deployment Path**: `/var/www/html/meet-ark`
 
@@ -305,36 +305,52 @@ Recorded in [docs/ARCHITECTURE.md](file:///Users/ahmedbltagy/Desktop/Work/meet-a
 
 ---
 
-## 11. Milestone 6: Minimal Authenticated API for Mobile & Desktop Clients (Local Only)
+## 11. Milestone 6: Bilingual Arabic/English Web & Mobile/Desktop API v1 (Released to Production)
 
-**Status**: Completed Locally (Local isolated testing only, no deployment or push)
+**Status**: Released to Production on Linux Server (`devark`)  
+**Production Git Commit**: `49c8330`  
+**API Base URL**: `https://meet-ark.dev-ark.com/api/v1`  
+**Web App URL**: `https://meet-ark.dev-ark.com`  
+**Jitsi URL**: `https://meet.dev-ark.com`  
 
-### A. Implemented Architecture & Endpoints (`/api/v1`)
-1. **Authentication (Laravel Sanctum)**:
-   - `POST /api/v1/register`: validates input, rate limited (10/min), bounded `device_name` (max 100 chars), issues finite personal access token (30 days default) with explicit UTC expiry.
-   - `POST /api/v1/login`: validates credentials, rate limited (10/min), bounded `device_name`, issues personal access token with explicit UTC expiry.
-   - `POST /api/v1/logout`: revokes only the current API token; tokens on other devices remain valid.
-   - `GET /api/v1/me`: returns authenticated user profile.
-   - Unauthenticated API requests return JSON 401 (`{"message": "Unauthenticated."}`), never HTML redirects.
-2. **Meetings Management & Shared Logic**:
-   - `GET /api/v1/meetings`: paginated meetings for current user (`data`, `links`, `meta`), user-isolated, ordinary responses never contain Jitsi JWTs.
-   - `POST /api/v1/meetings`: instant or scheduled meeting creation; cryptographically generates `room_name` via backend; converts timezones to UTC.
-   - `GET /api/v1/meetings/{id}`: invitation details accessible to any authenticated user under existing invitation policy; does not include JWT.
-   - `PATCH /api/v1/meetings/{id}`: owner only (403 for non-owners); updates title, schedule, duration while strictly preserving `room_name`.
-   - `DELETE /api/v1/meetings/{id}`: owner only (403 for non-owners); deletes meeting record.
-   - `POST /api/v1/meetings/{id}/join`: generates short-lived Jitsi JWT (5-minute TTL) via existing `JitsiTokenService`; returns `jitsi_url`, `room_name`, `token`, `expires_at`, `is_moderator`; sets `Cache-Control: no-store, private`; deleted meetings cannot issue join tokens (404).
-3. **Shared Logic Extraction**:
-   - Extracted `Meeting::generateRoomName()` and `ParsesMeetingDates` trait for clean reuse between web and API controllers without code duplication or calling Inertia controllers.
-4. **Locale Support (`Accept-Language`)**:
-   - Updated `SetLocale` middleware to inspect `Accept-Language` on API routes (`ar` or `en`) with documented fallback to Arabic (`ar`).
-   - Web application cookie-based locale persistence preserved 100%.
+### A. Production Release Execution
+1. **Pre-Deployment Safeguards**:
+   - PostgreSQL database backup created: `/var/www/html/meet-ark/backups/db_backup_pre_api_20261017_082047.sql` (`chmod 600`).
+   - Previous application image tagged for instant rollback: `meet-ark-app:rollback-pre-api-20261017` (`d887926d8133`).
+2. **Build & Migration**:
+   - Server repository updated: `git pull origin main` fast-forwarded to `49c8330`.
+   - Production Docker image built natively on host: `meet-ark-app:prod` (`736c9101450c`).
+   - Additive migration applied explicitly: `2026_10_17_075950_create_personal_access_tokens_table` (Batch 3, 37.48ms).
+3. **Container Recreation & Isolation**:
+   - Recreated **only** `meet-ark-app-1` with `--no-deps`.
+   - Jitsi (`web`, `prosody`, `jicofo`, `jvb`), `whiteboard`, `postgres`, and Nginx Proxy Manager remained uninterrupted.
+   - `APP_KEY`, production credentials, JWT configuration, and `./data/app-storage` persistent volumes preserved.
 
-### B. Documentation & Verification
-- **Documentation**: Created [docs/API.md](file:///Users/ahmedbltagy/Desktop/Work/meet-ark/docs/API.md) with complete endpoint specifications, curl examples, authentication details, status codes, pagination, and scheduling timezone semantics.
-- **Automated Tests**:
-  - `tests/Feature/Api/AuthApiTest.php` (9 tests)
-  - `tests/Feature/Api/MeetingApiTest.php` (13 tests)
-  - Full PHPUnit suite: **83 passed (587 assertions)** in isolated SQLite test database.
-- **Live Protocol Checks**: `scripts/verify_jitsi_jwt.php` passed all 7 live Prosody checks.
+### B. Live Production Smoke Checks
+Executed against `https://meet-ark.dev-ark.com` (Run ID: `20261017_082441_5bb7f4`):
+
+| # | Check | Result | Details |
+|---|---|---|---|
+| 1 | Unauthenticated API rejection | **PASS** | Returned HTTP 401 JSON (`{"message":"Unauthenticated."}`), no HTML redirect |
+| 2 | Arabic default & English cookie persistence | **PASS** | First visit returned `<html lang="ar" dir="rtl">`; `locale=en` returned `<html lang="en" dir="ltr">` |
+| 3 | API Registration & Finite Token Expiry | **PASS** | Registered User A (`id: 6`); returned finite token with ISO 8601 UTC expiry |
+| 4 | Second Device Login & Isolation | **PASS** | Logged in User A on Device 2 (`MacBook Smoke`); issued independent device token |
+| 5 | Scheduled Meeting & UTC Conversion | **PASS** | Created meeting (`id: 5`); `Asia/Riyadh` input converted accurately to UTC |
+| 6 | Paginated List & User Isolation | **PASS** | User A lists meeting 5; User B (`id: 7`) list excludes User A's meeting |
+| 7 | Invitee Meeting Details | **PASS** | Invitee retrieved meeting details (`is_owner: false`); **no JWT in response** |
+| 8 | Owner Join Token & Cache Headers | **PASS** | Returned production Jitsi URL (`https://meet.dev-ark.com`), `is_moderator: true`, `Cache-Control: no-store` |
+| 9 | Invitee Join Token & Privileges | **PASS** | Returned `is_moderator: false` for invitee |
+| 10 | Logout Token Revocation Isolation | **PASS** | Current token revoked (subsequent call 401); Device 2 token remained valid (200) |
+| 11 | Disposable Record Cleanup | **PASS** | Tracked records (Meeting `5`, Users `6, 7`) purged cleanly from production DB |
+
+### C. Verification Boundaries & Caveats
+- HTTP and JSON API checks verify endpoint contracts, status codes, payload structures, and token claims.
+- They do **not** prove rendered layout fidelity, clipboard behavior in non-standard browsers, actual media/audio transmission, or live Prosody XMPP role enforcement (marked **NOT TESTED** in live calls until physically observed).
+
+### D. Exact Rollback Command
+If immediate rollback of the app service is required:
+```bash
+ssh devark "docker tag meet-ark-app:rollback-pre-api-20261017 meet-ark-app:prod && cd /var/www/html/meet-ark && docker compose -p meet-ark -f docker-compose.yml -f docker-compose.prod.yml --env-file .env.production up -d --no-deps app"
+```
 
 
