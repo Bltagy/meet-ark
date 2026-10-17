@@ -1,0 +1,194 @@
+# ==============================================================================
+# Meet-Ark Production Docker Compose Configuration
+#
+# USAGE:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env.production <command>
+#
+# IMPORTANT:
+#   - Specifying explicit '-f' files ensures docker-compose.override.yml is NEVER loaded.
+#   - Laravel runs with Nginx + PHP-FPM, NOT artisan serve.
+#   - No host source-code volume mount is used; the application code and built assets are baked in.
+#   - APP_ENV=production and APP_DEBUG=false are enforced.
+#   - PostgreSQL exposes NO host ports (isolated within internal meet.jitsi network).
+#   - HTTP services bind to 127.0.0.1 for secure edge reverse proxy termination (Nginx/Caddy/Traefik).
+# ==============================================================================
+
+services:
+  # Jitsi Web (Nginx) reverse proxy for Jitsi conference & whiteboard
+  web:
+    ports:
+      - "${HTTP_PORT:-127.0.0.1:8000}:80"
+    volumes:
+      - ./docker/jitsi/web-default-site.tpl:/defaults/default:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:80/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Prosody XMPP signaling server with room-scoped JWT & moderator enforcement
+  prosody:
+    volumes:
+      - ./docker/prosody/mod_token_moderation.lua:/prosody-plugins-custom/mod_token_moderation.lua:ro
+    healthcheck:
+      test: ["CMD-SHELL", "prosodyctl --config /config/prosody.cfg.lua status || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Jicofo conference focus supervisor (ENABLE_AUTO_OWNER=false)
+  jicofo:
+    environment:
+      - JICOFO_ENABLE_HEALTH_CHECKS=1
+      - JICOFO_ENABLE_REST=1
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/healthcheck.sh"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Jitsi Videobridge (JVB) WebRTC SFU
+  jvb:
+    ports:
+      - "${JVB_PORT:-10000}:${JVB_PORT:-10000}/udp"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/about/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Whiteboard collaboration service (Excalidraw backend)
+  whiteboard:
+    image: jitsi/excalidraw-backend:21
+    restart: ${RESTART_POLICY:-unless-stopped}
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:80/', (r) => {process.exit(r.statusCode < 500 ? 0 : 1)}).on('error', () => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    depends_on:
+      - web
+    networks:
+      meet.jitsi:
+        aliases:
+          - whiteboard.meet.jitsi
+
+  # Jibri recording service - Kept disabled by default under recording profile
+  jibri:
+    profiles:
+      - recording
+    image: jitsi/jibri:${JITSI_IMAGE_VERSION:-stable-9955}
+    restart: ${RESTART_POLICY:-unless-stopped}
+    volumes:
+      - ${CONFIG}/jibri:/config:Z
+    shm_size: '2gb'
+    cap_add:
+      - SYS_ADMIN
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    depends_on:
+      - jicofo
+    networks:
+      meet.jitsi:
+
+  # PostgreSQL database - Strictly private to internal Docker network (NO host ports)
+  postgres:
+    image: postgres:16-alpine
+    restart: ${RESTART_POLICY:-unless-stopped}
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-meet_ark}
+      POSTGRES_USER: ${DB_USERNAME:-meet_ark}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data:Z
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-meet_ark} -d ${DB_DATABASE:-meet_ark} || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      meet.jitsi:
+
+  # Laravel application service - Production HTTP setup (PHP-FPM + Nginx)
+  app:
+    build:
+      context: .
+      dockerfile: docker/app/Dockerfile.prod
+    image: meet-ark-app:prod
+    restart: ${RESTART_POLICY:-unless-stopped}
+    environment:
+      APP_ENV: production
+      APP_DEBUG: "false"
+      APP_KEY: ${APP_KEY}
+      APP_URL: ${APP_URL}
+      DB_CONNECTION: pgsql
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_DATABASE: ${DB_DATABASE:-meet_ark}
+      DB_USERNAME: ${DB_USERNAME:-meet_ark}
+      DB_PASSWORD: ${DB_PASSWORD}
+      SESSION_DRIVER: database
+      JITSI_PUBLIC_URL: ${PUBLIC_URL}
+      JWT_APP_ID: ${JWT_APP_ID:-meet_ark_backend}
+      JWT_APP_SECRET: ${JWT_APP_SECRET}
+      JWT_ACCEPTED_ISSUERS: ${JWT_ACCEPTED_ISSUERS:-meet_ark_backend}
+      JWT_ACCEPTED_AUDIENCES: ${JWT_ACCEPTED_AUDIENCES:-meet_ark_platform}
+    volumes:
+      - ./data/app-storage:/var/www/html/storage:Z
+    ports:
+      - "${APP_PORT:-127.0.0.1:8088}:8088"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://127.0.0.1:8088/up || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      meet.jitsi:

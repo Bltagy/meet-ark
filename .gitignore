@@ -1,0 +1,24 @@
+# Environment configuration containing secrets
+.env
+.env.production
+*.env.bak
+.env.*.local
+
+# Persistent container data, keys, and certificates
+data/
+data/**
+
+# Scratch directory
+scratch/
+
+# Application vendor and node modules
+application/.env
+application/vendor/
+application/node_modules/
+application/public/build/
+application/storage/*.key
+
+# OS specific
+.DS_Store
+Thumbs.db
+

@@ -1,0 +1,30 @@
+server {
+	listen 80 default_server;
+	
+	{{ if .Env.ENABLE_IPV6 | default "1" | toBool }}
+	listen [::]:80 default_server;
+	{{ end }}
+
+	{{ if .Env.ENABLE_HTTP_REDIRECT | default "0" | toBool }}
+	{{ if .Env.PUBLIC_URL }}
+	return 301 {{ .Env.PUBLIC_URL }}$request_uri;
+	{{ else }}
+	return 301 https://$host$request_uri;
+	{{ end }}
+	{{ else }}
+	include /config/nginx/meet.conf;
+	{{ end }}
+}
+
+{{ if not (.Env.DISABLE_HTTPS | default "0" | toBool) }}
+server {
+	listen 443 ssl http2;
+	
+	{{ if .Env.ENABLE_IPV6 | default "1" | toBool }}
+	listen [::]:443 ssl http2;
+	{{ end }}
+
+	include /config/nginx/ssl.conf;
+	include /config/nginx/meet.conf;
+}
+{{ end }}

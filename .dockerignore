@@ -1,0 +1,22 @@
+.git
+.env
+.env.*
+*.env.bak
+data/
+scratch/
+upstream/
+docs/
+
+# Local build artifacts and caches
+application/vendor/
+application/node_modules/
+application/public/build/
+application/storage/*.key
+application/storage/framework/cache/data/*
+application/storage/framework/sessions/*
+application/storage/framework/views/*
+application/storage/logs/*.log
+application/bootstrap/cache/*.php
+application/.phpunit.result.cache
+.DS_Store
+Thumbs.db
